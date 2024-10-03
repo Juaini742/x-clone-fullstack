@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model comment {
+  id        String   @id @default(cuid())
+  postId    String
+  text      String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+  post      post     @relation(fields: [postId], references: [id], map: "Comment_postId_fkey")
+  user      user     @relation(fields: [userId], references: [id], map: "Comment_userId_fkey")
+
+  @@index([postId], map: "Comment_postId_fkey")
+  @@index([userId], map: "Comment_userId_fkey")
+}
+
+model follower {
+  id                      String @id @default(cuid())
+  userId                  String
+  followerId              String
+  // Menghubungkan followerId dengan pengguna yang menjadi pengikut.
+  follower_followerTouser user   @relation("follower_followerTouser", fields: [followerId], references: [id], map: "Follower_followerId_fkey")
+  // Menghubungkan userId dengan pengguna yang memiliki pengikut.
+  follower_userToFollower user   @relation("follower_userToFollower", fields: [userId], references: [id], map: "Follower_userId_fkey")
+
+  // Constraint unik untuk memastikan tidak ada duplikasi antara userId dan followerId
+  @@unique([userId, followerId], map: "unique_follower_constraint")
+  @@index([followerId], map: "Follower_followerId_fkey")
+  @@index([userId], map: "Follower_userId_fkey")
+}
+
+model following {
+  id                        String @id @default(cuid())
+  userId                    String
+  followingId               String
+  // Menghubungkan followingId dengan pengguna yang sedang diikuti.
+  user_followingTouser      user   @relation("following_followingTouser", fields: [followingId], references: [id], map: "Following_followingId_fkey")
+  // Menghubungkan userId dengan pengguna yang mengikuti orang lain.
+  following_userToFollowing user   @relation("following_userToFollowing", fields: [userId], references: [id], map: "Following_userId_fkey")
+
+  // Constraint unik untuk memastikan tidak ada duplikasi antara userId dan followingId
+  @@unique([userId, followingId], map: "unique_following_constraint")
+  @@index([followingId], map: "Following_followingId_fkey")
+  @@index([userId], map: "Following_userId_fkey")
+}
+
+model likedpost {
+  id     String @id @unique(map: "LikedPost_id_key") @default(cuid())
+  postId String
+  userId String
+  post   post   @relation(fields: [postId], references: [id], onDelete: Cascade, map: "LikedPost_postId_fkey")
+  user   user   @relation(fields: [userId], references: [id], onDelete: Cascade, map: "LikedPost_userId_fkey")
+
+  @@index([postId], map: "LikedPost_postId_fkey")
+  @@index([userId], map: "LikedPost_userId_fkey")
+}
+
+model notification {
+  id                                 String            @id @default(cuid())
+  fromUserId                         String
+  toUserId                           String
+  type                               notification_type
+  read                               Boolean           @default(false)
+  createdAt                          DateTime          @default(now())
+  updatedAt                          DateTime          @default(now())
+  user_notification_fromUserIdTouser user              @relation("notification_fromUserIdTouser", fields: [fromUserId], references: [id], map: "Notification_fromUserId_fkey")
+  user_notification_toUserIdTouser   user              @relation("notification_toUserIdTouser", fields: [toUserId], references: [id], map: "Notification_toUserId_fkey")
+
+  @@index([fromUserId], map: "Notification_fromUserId_fkey")
+  @@index([toUserId], map: "Notification_toUserId_fkey")
+}
+
+model post {
+  id        String      @id @unique(map: "Post_id_key") @default(cuid())
+  userId    String
+  text      String?
+  img       String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now())
+  comment   comment[]
+  likedpost likedpost[]
+  user      user        @relation(fields: [userId], references: [id], map: "Post_userId_fkey")
+
+  @@index([userId], map: "Post_userId_fkey")
+}
+
+model user {
+  id         String    @id @unique @default(cuid())
+  username   String
+  fullName   String
+  password   String
+  email      String    @unique(map: "User_email_key")
+  profileImg String?
+  coverImg   String?
+  bio        String?
+  link       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now())
+  postId     String?
+  comment    comment[]
+
+  // Menghubungkan pengguna dengan pengikutnya.
+  follower_followerTouser follower[] @relation("follower_followerTouser")
+  // Menghubungkan pengguna dengan yang mereka ikuti.
+  follower_userToFollower follower[] @relation("follower_userToFollower")
+
+  // Relasi untuk pengguna yang sedang diikuti.
+  following_followingTouser following[] @relation("following_followingTouser")
+  // Relasi untuk pengguna yang mengikuti orang lain.
+  following_userToFollowing following[] @relation("following_userToFollowing")
+
+  likedpost                     likedpost[]
+  notification_fromUserIdTouser notification[] @relation("notification_fromUserIdTouser")
+  notification_toUserIdTouser   notification[] @relation("notification_toUserIdTouser")
+  post                          post[]
+}
+
+enum notification_type {
+  follow
+  like
+}
